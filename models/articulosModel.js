@@ -6,12 +6,18 @@ const { connect, executeQuery, closeConnection } = require('../config/database')
 // Si civa no está definido, ALICUOTA e importes con IVA quedan en NULL.
 // TIPOMONEDA se devuelve como código de divisa (ARS, USD, ...): en la DB 'PE' = pesos.
 // Los importes netos llevan el sufijo _SIN_IVA en el nombre de la columna.
-async function getArticulos(articulo = null) {
+// unico=true devuelve una sola fila por SKU (ver getArticulosCatalogo), filtrando en la DB para no traer las demás.
+async function getArticulos(articulo = null, { unico = false } = {}) {
   let connection;
   try {
     connection = await connect();
     let query = `
+      SELECT * FROM (
       SELECT
+        ${unico ? `ROW_NUMBER() OVER (
+          PARTITION BY a.SKU
+          ORDER BY CASE WHEN NVL(a.BAJA, 0) = 0 THEN 0 ELSE 1 END, a.LISTA, a.UNINEGO, a.ZONA
+        ) AS RN,` : ''}
         a.UNINEGO,
         a.UNIDAD_NEGOCIO,
         a.CATEGORIA,
@@ -99,7 +105,9 @@ async function getArticulos(articulo = null) {
                 AND p.articulo = f.articulo
         ${articulo ? 'WHERE f.articulo = :articulo' : ''}
       ) a
-      ORDER BY a.SECCIONFIS, a.SKU, a.LISTA, a.UNINEGO, a.ZONA
+      ) r
+      ${unico ? 'WHERE r.RN = 1' : ''}
+      ORDER BY r.SECCIONFIS, r.SKU, r.LISTA, r.UNINEGO, r.ZONA
     `;
 
     const binds = articulo ? { articulo } : {};
@@ -119,9 +127,10 @@ async function getArticulos(articulo = null) {
 }
 
 // Salida reducida para el importador de catálogo, reutilizando getArticulos.
+// Una fila por SKU: se prefiere la que no está de baja y, entre ellas, la de menor LISTA, UNINEGO y ZONA.
 // El grupo del artículo es el proveedor. Divisa, descripción e imagen no existen en la DB, por eso no se devuelven.
 async function getArticulosCatalogo(sku = null) {
-  const rows = await getArticulos(sku);
+  const rows = await getArticulos(sku, { unico: true });
   return rows.map(r => ({
     NOMBRE: r.DENOMINACION,
     SKU: r.SKU,
