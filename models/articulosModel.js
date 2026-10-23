@@ -112,8 +112,9 @@ async function getArticulos(articulo = null, { unico = false } = {}) {
 
     const binds = articulo ? { articulo } : {};
     // fetchArraySize por defecto es 100: en el listado completo son cientos de viajes a Oracle.
+    const t0 = Date.now();
     const rows = await executeQuery(connection, query, binds, { fetchArraySize: 5000 });
-    console.log('Rows obtenidos de artículos:', rows.length);
+    console.log(`Rows obtenidos de artículos: ${rows.length} en ${Date.now() - t0} ms (query + fetch)`);
     return rows;
 
   } catch (err) {
@@ -126,10 +127,15 @@ async function getArticulos(articulo = null, { unico = false } = {}) {
   }
 }
 
+// Caché del catálogo completo (sin sku): evita correr la query de Oracle en cada carga o reintento.
+const CATALOGO_TTL_MS = 10 * 60 * 1000;
+let catalogoCache = { data: null, expira: 0 };
+let catalogoEnCurso = null;
+
 // Salida reducida para el importador de catálogo, reutilizando getArticulos.
 // Una fila por SKU: se prefiere la que no está de baja y, entre ellas, la de menor LISTA, UNINEGO y ZONA.
 // El grupo del artículo es el proveedor. Divisa, descripción e imagen no existen en la DB, por eso no se devuelven.
-async function getArticulosCatalogo(sku = null) {
+async function consultarCatalogo(sku) {
   const rows = await getArticulos(sku, { unico: true });
   return rows.map(r => ({
     NOMBRE: r.DENOMINACION,
@@ -142,6 +148,26 @@ async function getArticulosCatalogo(sku = null) {
     SUBCATEGORIA: r.SUBCATEGORIA,
     UNIDAD_NEGOCIO: r.UNIDAD_NEGOCIO,
   }));
+}
+
+// Con sku consulta siempre la DB. Sin sku usa el caché (refresh=true lo fuerza) y,
+// si ya hay una consulta en curso, los pedidos simultáneos esperan la misma.
+async function getArticulosCatalogo(sku = null, { refresh = false } = {}) {
+  if (sku) return consultarCatalogo(sku);
+
+  if (!refresh && catalogoCache.data && Date.now() < catalogoCache.expira) {
+    return catalogoCache.data;
+  }
+
+  if (!catalogoEnCurso) {
+    catalogoEnCurso = consultarCatalogo(null)
+      .then(data => {
+        catalogoCache = { data, expira: Date.now() + CATALOGO_TTL_MS };
+        return data;
+      })
+      .finally(() => { catalogoEnCurso = null; });
+  }
+  return catalogoEnCurso;
 }
 
 module.exports = { getArticulos, getArticulosCatalogo };

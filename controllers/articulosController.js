@@ -14,8 +14,10 @@ async function getArticulos(req, res) {
 
 async function getArticulosCatalogo(req, res) {
   try {
-    const { sku } = req.query;
-    const data = await articulosModel.getArticulosCatalogo(sku);
+    const { sku, refresh } = req.query;
+    const t0 = Date.now();
+    const data = await articulosModel.getArticulosCatalogo(sku, { refresh: refresh === '1' });
+    console.log(`getArticulosCatalogo sku=${sku ?? '-'}: ${data.length} filas, total ${Date.now() - t0} ms`);
     res.json(data);
   } catch (err) {
     console.error('Error en getArticulosCatalogo:', err);
