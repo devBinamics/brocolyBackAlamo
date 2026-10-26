@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const articulosRoutes = require('./routes/articulosRoutes');
+const cuentaRoutes = require('./routes/cuentaRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -30,6 +31,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.use('/api', articulosRoutes);
+app.use('/api', cuentaRoutes);
 
 app.get('/health', (req, res) => {
   res.sendStatus(200);
