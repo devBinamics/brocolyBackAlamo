@@ -17,9 +17,11 @@ async function getCuentas({ cuenta, buscar } = {}) {
     }
     return await executeQuery(
       connection,
-      `SELECT mc.cuenta, mc.nombre, mcu.cuit, mc.zona, dt.valor AS nombre_zona
+      `SELECT mc.cuenta, mc.nombre, mcu.cuit, mc.zona, dt.valor AS nombre_zona,
+              mc.centro, cop.descripcion AS coper_descrip
          FROM mcuenta mc
          LEFT JOIN mcuit mcu ON mc.uvaluecuit = mcu.uvalue
+         LEFT JOIN tb_coper cop ON cop.codigo = TO_CHAR(mc.centro)
          LEFT JOIN dtabla dt ON dt.clave = mc.zona
                             AND dt.entidad = 'ZCOMER'
                             AND dt.orden = 'Z2'
