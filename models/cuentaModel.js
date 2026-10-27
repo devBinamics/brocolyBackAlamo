@@ -82,7 +82,8 @@ async function getContactos({ cuenta, buscar } = {}) {
 }
 
 // Calle y número, con piso y departamento si los tiene (ej. "SARMIENTO 123 PISO 2 DTO B").
-function armarContacto({ DOMICI, NRODOMIC, PISO, DEPARTAMENTO, LOCALI, PCIA, CPOSTAL, ...resto }) {
+// El orden de las claves es el de salida del endpoint; CUIT y FAX quedan al final.
+function armarContacto({ CUENTA, NOMBRE, TELEFONO, EMAIL, CUIT, FAX, DOMICI, NRODOMIC, PISO, DEPARTAMENTO, LOCALI, PCIA, CPOSTAL }) {
   const domicilio = [
     DOMICI,
     NRODOMIC || null,
@@ -90,12 +91,16 @@ function armarContacto({ DOMICI, NRODOMIC, PISO, DEPARTAMENTO, LOCALI, PCIA, CPO
     DEPARTAMENTO ? `DTO ${DEPARTAMENTO}` : null,
   ].filter(Boolean).join(' ');
   return {
-    ...resto,
+    CUENTA,
+    NOMBRE,
+    TELEFONO,
+    EMAIL,
     DOMICILIO: domicilio || null,
     LOCALIDAD: LOCALI || null,
     PROVINCIA: nombreProvincia(PCIA),
-    PROVINCIA_CODIGO: PCIA || null,
     CODIGO_POSTAL: CPOSTAL || null,
+    CUIT,
+    FAX,
   };
 }
 
