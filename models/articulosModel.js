@@ -1,5 +1,6 @@
 // models/articulosModel.js
 const { connect, executeQuery, closeConnection } = require('../config/database');
+const { limpiarFilas } = require('../utils/normalizar');
 
 // p.precio es el precio de venta SIN IVA. El precio con IVA no está en la DB:
 // se calcula con la alícuota según f.civa (1=21%, 2=10,5%, 3=27%).
@@ -103,7 +104,7 @@ async function getArticulos(articulo = null, { unico = false } = {}) {
              LEFT JOIN pstock p
                  ON p.empresa = f.empresa
                 AND p.articulo = f.articulo
-        ${articulo ? 'WHERE f.articulo = :articulo' : ''}
+        ${articulo ? 'WHERE TRIM(f.articulo) = TRIM(:articulo)' : ''}
       ) a
       ) r
       ${unico ? 'WHERE r.RN = 1' : ''}
@@ -115,7 +116,7 @@ async function getArticulos(articulo = null, { unico = false } = {}) {
     const t0 = Date.now();
     const rows = await executeQuery(connection, query, binds, { fetchArraySize: 5000 });
     console.log(`Rows obtenidos de artículos: ${rows.length} en ${Date.now() - t0} ms (query + fetch)`);
-    return rows;
+    return limpiarFilas(rows);
 
   } catch (err) {
     console.error('Error en getArticulos:', err);

@@ -4,7 +4,10 @@ const oracledb = require('oracledb');
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
 oracledb.fetchAsString = [ oracledb.CLOB ];
 
-oracledb.initOracleClient({ });
+// ORACLE_THIN=1 usa el modo thin (sin Instant Client), para servidores donde no se puede instalar.
+if (process.env.ORACLE_THIN !== '1') {
+  oracledb.initOracleClient({ });
+}
 
 let poolPromise = null;
 

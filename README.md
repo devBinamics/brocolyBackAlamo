@@ -9,3 +9,5 @@ API de Alamo. Endpoints (requieren `Authorization: Bearer <API_KEY>`):
 - `GET /health`
 
 Configurar `.env` a partir de `.env.example`.
+
+Despliegue, accesos al servidor y solución de problemas: ver [DEPLOY.md](DEPLOY.md).
