@@ -192,6 +192,13 @@ function conCache(consultar) {
   };
 }
 
+// Texto para el campo Descripción del importador: de qué lista de precios sale el PRECIO (ej. "Lista 6: LISTA DE PRECIOS
+// AGROQUIMICOS Y SEMILLAS"). Es null si el artículo no tiene precio de lista.
+function descripcionLista(r) {
+  if (!r.TIENE_PRECIO) return null;
+  return r.LISTA_NOMBRE ? `Lista ${r.LISTA}: ${r.LISTA_NOMBRE}` : `Lista ${r.LISTA}`;
+}
+
 // Salida reducida para el importador de catálogo, reutilizando getArticulos.
 // Una fila por SKU: se prefiere la que no está de baja, luego la que tiene precio mayor a 0, luego la de una lista vigente,
 // luego la de cambio de precio más reciente y, por último, la de menor LISTA, UNINEGO y ZONA. Si ninguna lista está vigente
@@ -211,6 +218,7 @@ async function consultarCatalogo(sku, secciones = [], conPrecio = false) {
     PADRE: r.CATEGORIA,
     CENTRO_COSTO: r.SUBCATEGORIA,
     SECCIONFIS: r.UNIDAD_NEGOCIO,
+    DESCRIPCION: descripcionLista(r),
     TIENE_PRECIO: r.TIENE_PRECIO,
   }));
 }
