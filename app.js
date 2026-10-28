@@ -5,11 +5,13 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const articulosRoutes = require('./routes/articulosRoutes');
 const cuentaRoutes = require('./routes/cuentaRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 
 const app = express();
 app.set('trust proxy', 1);
 app.use(cors());
-app.use(express.json({ limit: '500kb' }));
+// rawBody se conserva para verificar la firma del webhook de GitHub (ver routes/webhookRoutes.js).
+app.use(express.json({ limit: '500kb', verify: (req, res, buf) => { req.rawBody = buf; } }));
 
 app.use((req, res, next) => {
   const fecha = new Date().toISOString();
@@ -32,6 +34,7 @@ app.use(limiter);
 
 app.use('/api', articulosRoutes);
 app.use('/api', cuentaRoutes);
+app.use(webhookRoutes);
 
 app.get('/health', (req, res) => {
   res.sendStatus(200);
