@@ -49,6 +49,7 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
         a.DENOMINACION,
         a.PROVEEDOR,
         a.PROVEEDOR_DESCRIP,
+        a.MARCA,
         a.SUBGRUPO1,
         a.SUBGRUPO2,
         a.CENTROCOSTO,
@@ -80,6 +81,7 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
                f.denominacion AS DENOMINACION,
                f.grupo AS PROVEEDOR,
                g.valor AS PROVEEDOR_DESCRIP,
+               f.marca AS MARCA,
                f.subgrupo1 AS SUBGRUPO1,
                f.subgrupo2 AS SUBGRUPO2,
                f.centrocosto AS CENTROCOSTO,
@@ -154,6 +156,8 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
     // TIENE_PRECIO: hay un precio de lista cargado (distinto de 0), aunque el precio con IVA pueda quedar en null por IVA sin definir.
     return limpiarFilas(rows).map(r => ({
       ...r,
+      // famstock.marca vale 0 cuando el artículo no tiene marca cargada.
+      MARCA: r.MARCA ? r.MARCA : null,
       LISTA_VIGENTE: r.LISTA_VIGENTE === null ? null : r.LISTA_VIGENTE === 1,
       TIENE_PRECIO: Number(r.PRECIO_SIN_IVA) > 0,
     }));
@@ -215,6 +219,7 @@ async function consultarCatalogo(sku, secciones = [], conPrecio = false) {
     TIPOMONEDA: r.TIPOMONEDA,
     COSTO: r.COSTOTOTAL_SIN_IVA,
     GRUPO: r.PROVEEDOR_DESCRIP,
+    MARCA: r.MARCA,
     PADRE: r.CATEGORIA,
     CENTRO_COSTO: r.SUBCATEGORIA,
     SECCIONFIS: r.UNIDAD_NEGOCIO,
