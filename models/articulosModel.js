@@ -35,7 +35,11 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
       SELECT
         ${unico ? `ROW_NUMBER() OVER (
           PARTITION BY a.SKU
-          ORDER BY CASE WHEN NVL(a.BAJA, 0) = 0 THEN 0 ELSE 1 END, a.LISTA, a.UNINEGO, a.ZONA
+          ORDER BY CASE WHEN NVL(a.BAJA, 0) = 0 THEN 0 ELSE 1 END,
+                   CASE WHEN NVL(a.PRECIO_SIN_IVA, 0) > 0 THEN 0 ELSE 1 END,
+                   CASE WHEN a.LISTA_VIGENTE = 1 THEN 0 ELSE 1 END,
+                   a.FECHA_ULTIMO_CAMBIO_PRECIO DESC NULLS LAST,
+                   a.LISTA, a.UNINEGO, a.ZONA
         ) AS RN,` : ''}
         a.UNINEGO,
         a.UNIDAD_NEGOCIO,
@@ -51,6 +55,8 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
         a.SECCIONFIS,
         a.ZONA,
         a.LISTA,
+        a.LISTA_NOMBRE,
+        a.LISTA_VIGENTE,
         a.DEPOSITO,
         a.TIPOMONEDA,
         a.COSTOTOTAL_SIN_IVA,
@@ -80,6 +86,13 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
                f.seccionfis AS SECCIONFIS,
                p.zona AS ZONA,
                p.lista AS LISTA,
+               l.detlista AS LISTA_NOMBRE,
+               -- 1 si la lista está sin baja y hoy está dentro de su período de vigencia (los períodos de LISTAPRE son días
+               -- desde 1800-12-28); NULL si el artículo no tiene fila de precios.
+               CASE WHEN p.lista IS NULL THEN NULL
+                    WHEN NVL(l.baja, 0) = 0
+                     AND (TRUNC(SYSDATE) - DATE '1800-12-28') BETWEEN NVL(l.fechavigencia, 0) AND NVL(l.hastavigencia, 999999)
+                    THEN 1 ELSE 0 END AS LISTA_VIGENTE,
                p.deposito AS DEPOSITO,
                CASE f.tipomoneda
                    WHEN 'PE' THEN 'ARS'
@@ -122,6 +135,11 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
              LEFT JOIN pstock p
                  ON p.empresa = f.empresa
                 AND p.articulo = f.articulo
+             LEFT JOIN listapre l
+                 ON l.empresa = p.empresa
+                AND l.uninego = p.uninego
+                AND NVL(l.zona, '~') = NVL(p.zona, '~')
+                AND l.lista = p.lista
         ${condiciones.length ? 'WHERE ' + condiciones.join(' AND ') : ''}
       ) a
       ) r
@@ -134,7 +152,11 @@ async function getArticulos(articulo = null, { unico = false, secciones = [], co
     const rows = await executeQuery(connection, query, binds, { fetchArraySize: 5000 });
     console.log(`Rows obtenidos de artículos: ${rows.length} en ${Date.now() - t0} ms (query + fetch)`);
     // TIENE_PRECIO: hay un precio de lista cargado (distinto de 0), aunque el precio con IVA pueda quedar en null por IVA sin definir.
-    return limpiarFilas(rows).map(r => ({ ...r, TIENE_PRECIO: Number(r.PRECIO_SIN_IVA) > 0 }));
+    return limpiarFilas(rows).map(r => ({
+      ...r,
+      LISTA_VIGENTE: r.LISTA_VIGENTE === null ? null : r.LISTA_VIGENTE === 1,
+      TIENE_PRECIO: Number(r.PRECIO_SIN_IVA) > 0,
+    }));
 
   } catch (err) {
     console.error('Error en getArticulos:', err);
@@ -171,7 +193,9 @@ function conCache(consultar) {
 }
 
 // Salida reducida para el importador de catálogo, reutilizando getArticulos.
-// Una fila por SKU: se prefiere la que no está de baja y, entre ellas, la de menor LISTA, UNINEGO y ZONA.
+// Una fila por SKU: se prefiere la que no está de baja, luego la que tiene precio mayor a 0, luego la de una lista vigente,
+// luego la de cambio de precio más reciente y, por último, la de menor LISTA, UNINEGO y ZONA. Si ninguna lista está vigente
+// se usa la que exista. Los datos de la lista (LISTA_NOMBRE, LISTA_VIGENTE) solo se devuelven en /api/articulos-control.
 // GRUPO es la descripción del grupo del artículo (famstock.grupo traducido con dtabla GRUPO),
 // PADRE es famstock.padre, CENTRO_COSTO la descripción de famstock.centrocosto (dtabla CCOSTO) y
 // SECCIONFIS la descripción de famstock.seccionfis (dtabla SECCVT; el código es el que usa ?seccion=). Divisa, descripción e imagen no existen en la DB, por eso no se devuelven.
