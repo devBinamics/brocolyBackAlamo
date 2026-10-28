@@ -10,3 +10,8 @@ API de Alamo. Endpoints (requieren `Authorization: Bearer <API_KEY>`):
 - `GET /health`
 
 Configurar `.env` a partir de `.env.example`.
+
+## Despliegue
+
+Cada `push` a `main` se despliega solo: GitHub avisa a `POST /webhook` (firmado con `GITHUB_WEBHOOK_SECRET`) y el servidor ejecuta `scripts/deploy.sh`, que actualiza el código, reinstala dependencias solo si cambió `package.json` y recarga la API con pm2 (`ecosystem.config.js`). El resultado queda en `deploy.log`.
+
