@@ -9,8 +9,13 @@ module.exports = {
       script: 'app.js',
       cwd: `${home}/brocolyBackAlamo`,
       // Oracle Instant Client (thick) y libaio, que el servidor no tiene instalados en el sistema.
+      // PATH explícito: pm2 arrancado desde cron (@reboot) no hereda el de la sesión SSH.
+      // git (sin sudo) está descomprimido en ~/git/root; GIT_EXEC_PATH y GIT_TEMPLATE_DIR apuntan a esa copia.
       env: {
-        LD_LIBRARY_PATH: `${home}/oracle/instantclient_19_28:${home}/oracle/libaio/usr/lib/x86_64-linux-gnu`,
+        PATH: `${home}/node/bin:${home}/git/root/usr/bin:/usr/local/bin:/usr/bin:/bin`,
+        LD_LIBRARY_PATH: `${home}/oracle/instantclient_19_28:${home}/oracle/libaio/usr/lib/x86_64-linux-gnu:${home}/git/root/usr/lib/x86_64-linux-gnu`,
+        GIT_EXEC_PATH: `${home}/git/root/usr/lib/git-core`,
+        GIT_TEMPLATE_DIR: `${home}/git/root/usr/share/git-core/templates`,
       },
       autorestart: true,
       // Espera creciente entre reintentos si el arranque falla, para no entrar en un bucle rápido.
