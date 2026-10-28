@@ -5,6 +5,15 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Candado: si ya hay un deploy en curso, este se descarta. Un candado de más de 10 minutos se considera huérfano.
+LOCK=".deploy.lock"
+find "$LOCK" -maxdepth 0 -mmin +10 -exec rmdir {} \; 2>/dev/null || true
+if ! mkdir "$LOCK" 2>/dev/null; then
+  echo "Ya hay un deploy en curso, se omite"
+  exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
 echo "=== Deploy $(date -Is) ==="
 ANTES=$(git rev-parse HEAD)
 git fetch origin main

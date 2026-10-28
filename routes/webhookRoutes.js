@@ -1,7 +1,6 @@
 // routes/webhookRoutes.js
 const express = require('express');
 const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const router = express.Router();
@@ -22,12 +21,17 @@ function firmaValida(req, secreto) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// El script corre separado del proceso de la API, que es el que pm2 reinicia al final del deploy.
+// El script corre completamente desacoplado de la API: pm2 la reinicia al final del deploy y, si el script fuera
+// hijo de la API, lo cerraría antes de escribir las últimas líneas del log. Con nohup y '&' dentro de un bash que
+// termina enseguida, el script queda huérfano. El candado contra deploys simultáneos está en scripts/deploy.sh.
 function desplegar() {
   desplegando = true;
-  const salida = fs.openSync(LOG_DEPLOY, 'a');
-  const proceso = spawn('bash', [SCRIPT_DEPLOY], { detached: true, stdio: ['ignore', salida, salida] });
-  proceso.on('exit', () => { desplegando = false; });
+  setTimeout(() => { desplegando = false; }, 30 * 1000);
+  const proceso = spawn(
+    'bash',
+    ['-c', 'nohup bash "$0" >> "$1" 2>&1 &', SCRIPT_DEPLOY, LOG_DEPLOY],
+    { detached: true, stdio: 'ignore' }
+  );
   proceso.unref();
 }
 
